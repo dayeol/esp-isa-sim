@@ -34,6 +34,10 @@ struct gemmini_state_t
   reg_t acc_shift, sys_shift, relu6_shift;
   reg_t load_stride;
   reg_t store_stride;
+	
+	// EE290DAYEOL
+	reg_t locked;
+	reg_t locked_satp;
 
   bool enable;
   std::vector<std::vector<input_t>> *spad; // Scratchpad constructed as systolic array rows
@@ -55,6 +59,9 @@ public:
   void setmode(reg_t rs1, reg_t rs2);
   void compute(reg_t a_addr, reg_t bd_addr, bool preload);
   void loop_ws(reg_t rs1, reg_t rs2);
+	// EE290DAYEOL
+	void lock();
+	void unlock();
 
 private:
   gemmini_state_t gemmini_state;
@@ -69,6 +76,9 @@ private:
   const unsigned preload_funct = 6;
   const unsigned flush_funct = 7;
   const unsigned loop_ws_funct = 8;
+	// EE290DAYEOL
+	const unsigned lock_funct = 9;
+	const unsigned unlock_funct = 10;
 
   bool debug;
   input_t apply_activation(input_t value);

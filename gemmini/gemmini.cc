@@ -16,7 +16,10 @@ void gemmini_state_t::reset()
   sys_shift = 0;
   relu6_shift = 0;
   output_sp_addr = 0;
-  load_stride = dim * sizeof(input_t);
+  // EE290DAYEOL
+	locked = 0;
+	locked_satp = 0;
+	load_stride = dim * sizeof(input_t);
   store_stride = dim * sizeof(input_t);
   spad = new std::vector<std::vector<input_t>>(sp_matrices*dim, std::vector<input_t>(dim));
   for (size_t row = 0; row < sp_matrices*dim; ++row) {
@@ -305,7 +308,36 @@ void gemmini_t::loop_ws(reg_t rs1, reg_t rs2) {
   }
 }
 
+// EE290DAYEOL
+void gemmini_t::lock() {
+	// if user priv	
+	printf("Privilege: %d\n", p->get_state()->prv);
+	
+	if(p->get_state()->prv == 0 || gemmini_state.locked) {
+		illegal_instruction();
+	} else {
+		gemmini_state.locked = 1;
+		gemmini_state.locked_satp = p->get_state()->satp;
+		printf("Gemmini locked with %x\n",p->get_state()->satp);
+	}
+}
+void gemmini_t::unlock() {
+	if(p->get_state()->prv == 0 || !gemmini_state.locked) {
+		illegal_instruction();
+	} else {
+		gemmini_state.locked = 0;
+		gemmini_state.locked_satp = 0;
+		printf("Gemmini unlocked\n");
+	}
+}
+
 reg_t gemmini_t::custom3(rocc_insn_t insn, reg_t xs1, reg_t xs2) {
+	// EE290DAYEOL
+	if (gemmini_state.locked == 1 && 
+			gemmini_state.locked_satp != p->get_state()->satp) {
+		illegal_instruction();
+	}
+
   if (insn.funct == mvin_funct)
     mvin(xs1, xs2);
   else if (insn.funct == mvout_funct)
@@ -323,7 +355,15 @@ reg_t gemmini_t::custom3(rocc_insn_t insn, reg_t xs1, reg_t xs2) {
   }
   else if (insn.funct == loop_ws_funct) {
     loop_ws(xs1, xs2);
-  } else {
+  } 
+	// EE290DAYEOL
+	else if (insn.funct == lock_funct) {
+		lock();
+  } 
+	else if (insn.funct == unlock_funct) {
+		unlock();
+  }
+	else {
     dprintf("GEMMINI: encountered unknown instruction with funct: %d\n", insn.funct);
     illegal_instruction();
   }

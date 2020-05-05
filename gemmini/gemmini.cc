@@ -112,6 +112,7 @@ void gemmini_t::mvout(reg_t dram_addr, reg_t sp_addr) {
         auto const dram_byte_addr = dram_row_addr + j*sizeof(input_t);
         input_t value = gemmini_state.spad->at(base_row_addr + i).at(j);
         write_to_dram<input_t>(dram_byte_addr, value);
+				gemmini_state.spad->at(base_row_addr + i).at(j) = 0;
         dprintf("%d ", value);
       }
     }
@@ -313,7 +314,7 @@ void gemmini_t::lock() {
 	// if user priv	
 	printf("Privilege: %d\n", p->get_state()->prv);
 	
-	if(p->get_state()->prv == 0 || gemmini_state.locked) {
+	if(p->get_state()->prv == 0 && gemmini_state.locked) {
 		illegal_instruction();
 	} else {
 		gemmini_state.locked = 1;
@@ -322,7 +323,7 @@ void gemmini_t::lock() {
 	}
 }
 void gemmini_t::unlock() {
-	if(p->get_state()->prv == 0 || !gemmini_state.locked) {
+	if(p->get_state()->prv == 0 && (!gemmini_state.locked || gemmini_state.locked_satp != p->get_state()->satp)) {
 		illegal_instruction();
 	} else {
 		gemmini_state.locked = 0;
